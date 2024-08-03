@@ -1,0 +1,119 @@
+{% include 'layout.html' %}
+
+<div class="container mt-5" style="background-color: #f5fcfc;">
+  <h3>
+    Add input to chat with personal chatbot
+  </h3>
+  
+
+  <div>
+    <div class="card text-center mt-3" >
+      <div class="card-header" style="background-color: #aef30c;">
+        Chat History:
+      </div>
+      <div class="card-body" id="chatHistory">
+        
+      </div>
+    </div>
+  </div>
+  <div class="container" id="footer">
+    <div class="input-group mb-3">
+      <input class="form-control" placeholder="Add input here" id ="userInput" rows="3">
+      <button class="btn btn-outline-primary" type="button" id="sendButton">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  var websocketString = "";
+
+  if (window.location.hostname == "127.0.0.1") {
+      websocketString = "ws://localhost:8000/ws";
+  } else {
+      websocketString = `wss://${window.location.hostname}/ws`;
+  }
+
+  var ws = new WebSocket(websocketString);
+  
+  var sendButton = document.getElementById("sendButton");
+  var userInput = document.getElementById("userInput");
+  var chatHistory = document.getElementById("chatHistory");
+
+  var currentAIMessage = '';
+
+  ws.onmessage = function(event) {
+    var data = JSON.parse(event.data);
+    switch(data.type) {
+      case "start":
+        currentAIMessage = '';
+        var messageDiv = document.createElement("div");
+        messageDiv.id = "current-ai-message";
+        messageDiv.className = "ai-message";
+        messageDiv.textContent = "<b> AI: </b> ";
+        chatHistory.appendChild(messageDiv);
+        break;
+      case "token":
+        currentAIMessage += data.content;
+        document.getElementById("current-ai-message").textContent = "AI: " + currentAIMessage;
+        break;
+      case "end":
+        document.getElementById("current-ai-message").removeAttribute("id");
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+        break;
+      case "error":
+        var errorDiv = document.createElement("div");
+        errorDiv.textContent = "Error: " + data.content;
+        errorDiv.className = "error-message";
+        chatHistory.appendChild(errorDiv);
+        break;
+    }
+  };
+
+  function sendMessage() {
+    var message = userInput.value.trim();
+    if (message) {
+      var userMessageDiv = document.createElement("div");
+      userMessageDiv.textContent = "You: " + message;
+      userMessageDiv.className = "user-message";
+      chatHistory.appendChild(userMessageDiv);
+      ws.send(message);
+      userInput.value = "";
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+  }
+
+  sendButton.onclick = sendMessage;
+
+  userInput.onkeypress = function(e) {
+    if (e.key === 'Enter') {
+      sendMessage();
+      e.preventDefault();
+    }
+  };
+</script>
+
+<style>
+  .user-message {
+    text-align: right;
+    margin: 5px;
+    padding: 5px;
+    background-color: #0dcc5d;
+    border-radius: 10px;
+  }
+  .ai-message {
+    text-align: left;
+    margin: 5px;
+    padding: 5px;
+    background-color: #969ecc;
+    border-radius: 10px;
+  }
+  .error-message {
+    color: red;
+    margin: 5px;
+    padding: 5px;
+  }
+  #chatHistory {
+    height: 400px;
+    overflow-y: auto;
+  }
+</style>
